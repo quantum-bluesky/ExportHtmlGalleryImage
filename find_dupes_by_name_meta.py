@@ -78,20 +78,40 @@ def read_exif_signature(p: Path):
     except Exception:
         return None
 
+def get_image_dimensions(p: Path):
+    try:
+        with Image.open(p) as img:
+            return img.width, img.height
+    except Exception:
+        return None, None
+
 def compute_quick_key(p: Path):
     """
     Quick-key để so sánh:
-      - size + exif_signature (nếu có)
-      - nếu không có exif_signature: size + mtime (iso)
+      - size + width + height + exif_signature (nếu có)
+      - nếu không có exif_signature: size + width + height + mtime
     """
     st = safe_stat(p)
+    width, height = get_image_dimensions(p)
     exif_sig = read_exif_signature(p)
+
+    dim_part = (width, height)
+
     if exif_sig:
-        # sort keys để ổn định
         exif_norm = json.dumps(exif_sig, ensure_ascii=False, sort_keys=True)
-        return ("SIZE+EXIF", st["size"], exif_norm), exif_sig, st
+        return (
+            "SIZE+DIMS+EXIF",
+            st["size"],
+            dim_part,
+            exif_norm
+        ), exif_sig, st
     else:
-        return ("SIZE+DATE", st["size"], st["mtime_iso"]), None, st
+        return (
+            "SIZE+DIMS+DATE",
+            st["size"],
+            dim_part,
+            st["mtime_iso"]
+        ), None, st
 
 def pick_original(files: list[Path], base: str):
     """
